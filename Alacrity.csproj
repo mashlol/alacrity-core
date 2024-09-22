@@ -1,0 +1,17 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net4.6</TargetFramework>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <LangVersion>9.0</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="Xilium.CefGlue">
+      <HintPath>..\Assets\Alacrity\AlacrityCore\Xilium.CefGlue.dll</HintPath>
+    </Reference>
+    <Compile Include="..\Assets\Alacrity\Scripts\Common\**\*.cs" />
+  </ItemGroup>
+
+</Project>
