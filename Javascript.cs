@@ -7,12 +7,29 @@ namespace Alacrity {
   const ws = new WebSocket(""ws://127.0.0.1:{port}?s={securityKey}"");
   ws.binaryType = ""arraybuffer"";
 
+  let wsMessageQueue = [];
+  let isConnected = false;
+
   ws.onmessage = (e) => {
     window.dispatchEvent(new CustomEvent(""unitydata"", {detail: e.data}));
   };
 
+  ws.onopen = () => {
+    // Send queued messages
+    isConnected = true;
+    for (const x in wsMessageQueue) {
+      sendToUnity(wsMessageQueue[x]);
+    }
+
+    wsMessageQueue = null;
+  };
+
   window.sendToUnity = (data) => {
-    ws.send(data);
+    if (isConnected) {
+      ws.send(data);
+    } else {
+      wsMessageQueue.push(data);
+    }
   };
 
   let latestActiveElement = document.activeElement;
