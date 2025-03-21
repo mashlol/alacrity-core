@@ -152,6 +152,24 @@ namespace Alacrity {
 
             protected override void OnAfterCreated(CefBrowser browser) {}
 
+            protected override bool OnBeforePopup(
+                CefBrowser browser,
+                CefFrame frame,
+                string targetUrl,
+                string targetFrameName,
+                CefWindowOpenDisposition targetDisposition,
+                bool userGesture,
+                CefPopupFeatures popupFeatures,
+                CefWindowInfo windowInfo,
+                ref CefClient client,
+                CefBrowserSettings settings,
+                ref CefDictionaryValue extraInfo,
+                ref bool noJavascriptAccess
+            ) {
+                browser.GetMainFrame().LoadUrl(targetUrl);
+                return true;
+            }
+
         }
 
         public class RenderProcessHandler : CefRenderProcessHandler {
