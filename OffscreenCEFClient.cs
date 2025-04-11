@@ -175,6 +175,9 @@ namespace Alacrity {
         public class RenderProcessHandler : CefRenderProcessHandler {
 
             protected override void OnContextCreated(CefBrowser browser, CefFrame frame, CefV8Context context) {
+                if (!frame.IsMain) {
+                    return;
+                }
                 context.TryEval(
                     Javascript.GetJSToInject(FileIPC.GetWSPort(), FileIPC.GetWSSecurityKey()),
                     null,
