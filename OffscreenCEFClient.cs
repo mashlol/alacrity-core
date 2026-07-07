@@ -11,6 +11,7 @@ namespace Alacrity {
         private readonly OffscreenLoadHandler _loadHandler;
         private readonly OffscreenRenderHandler _renderHandler;
         private readonly CefLifeSpanHandler _lifeSpanHandler;
+        private readonly OffscreenJSDialogHandler _jsDialogHandler;
 
         private CefBrowserHost sHost;
         private Action<string, CefPaintElementType> onAcceleratedPaintAction;
@@ -21,6 +22,7 @@ namespace Alacrity {
             _loadHandler = new OffscreenLoadHandler(this);
             _renderHandler = new OffscreenRenderHandler(width, height, this);
             _lifeSpanHandler = new LifeSpanHandler();
+            _jsDialogHandler = new OffscreenJSDialogHandler();
         }
 
         public void OnAcceleratedPaint(Action<string, CefPaintElementType> action) {
@@ -63,6 +65,10 @@ namespace Alacrity {
             return _lifeSpanHandler;
         }
 
+        protected override CefJSDialogHandler GetJSDialogHandler() {
+            return _jsDialogHandler;
+        }
+
         internal class OffscreenLoadHandler : CefLoadHandler {
             private readonly OffscreenCEFClient client;
 
@@ -76,6 +82,37 @@ namespace Alacrity {
                     browser.GetHost().SetFocus(true);
                 }
             }
+        }
+
+        internal class OffscreenJSDialogHandler : CefJSDialogHandler {
+            protected override bool OnBeforeUnloadDialog(
+                CefBrowser browser,
+                string messageText,
+                bool isReload,
+                CefJSDialogCallback callback
+            ) {
+                callback.Continue(true, "");
+                return true;
+            }
+
+            protected override void OnDialogClosed(CefBrowser browser) {}
+
+            protected override bool OnJSDialog(
+                CefBrowser browser,
+                string originUrl,
+                CefJSDialogType dialogType,
+                string message_text,
+                string default_prompt_text,
+                CefJSDialogCallback callback,
+                out bool suppress_message
+            ) {
+                suppress_message = true;
+                callback.Continue(false, "");
+                return false;
+            }
+
+            protected override void OnResetDialogState(CefBrowser browser) {}
+
         }
 
         public class OffscreenRenderHandler : CefRenderHandler {

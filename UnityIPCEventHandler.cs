@@ -1,16 +1,32 @@
+using Alacrity.Common;
 using System;
+using System.Runtime.InteropServices;
 using System.Text;
 using Xilium.CefGlue;
-using Alacrity.Common;
 
 namespace Alacrity {
     public class UnityIPCEventHandler {
 
         private readonly OffscreenCEFClient cefClient;
 
-        private static CefEventFlags modifiers = CefEventFlags.None;
-        private static int mouseX = 0;
-        private static int mouseY = 0;
+        private CefEventFlags modifiers = CefEventFlags.None;
+        private int mouseX = 0;
+        private int mouseY = 0;
+
+        private int lastClickButton = -1;
+        private int lastClickMouseX;
+        private int lastClickMouseY;
+        private int lastClickTimeMs;
+        private int lastClickCount;
+
+        [DllImport("user32.dll")]
+        private static extern uint GetDoubleClickTime();
+
+        [DllImport("user32.dll")]
+        private static extern int GetSystemMetrics(int nIndex);
+
+        private const int SM_CXDOUBLECLK = 36;
+        private const int SM_CYDOUBLECLK = 37;
 
         public UnityIPCEventHandler(OffscreenCEFClient cefClient) {
             this.cefClient = cefClient;
@@ -91,22 +107,63 @@ namespace Alacrity {
                 cefButton = CefMouseButtonType.Middle;
             }
 
+            // Supposedly, we need to track "double" or "triple" clicks, the
+            // browser doesn't handle this for us, nor does CEF, for some reason
+            int clickCount = GetMouseClickCount(button, isUp, mouseX, mouseY);
+
             if (isUp) {
                 modifiers &= ~flagToModify;
             } else {
                 modifiers |= flagToModify;
             }
+
             cefClient.GetHost().SendMouseClickEvent(new CefMouseEvent {
                 X = mouseX,
                 Y = mouseY,
-            }, cefButton, isUp, isUp ? 0 : 1);
+                Modifiers = modifiers,
+            }, cefButton, isUp, clickCount);
+        }
+
+        private int GetMouseClickCount(byte button, bool isUp, int x, int y) {
+            // Use the same click count for the matching mouse-up.
+            if (isUp) {
+                return Math.Max(lastClickCount, 1);
+            }
+
+            int nowMs = Environment.TickCount;
+
+            int doubleClickTimeMs = (int) GetDoubleClickTime();
+            int doubleClickWidth = GetSystemMetrics(SM_CXDOUBLECLK);
+            int doubleClickHeight = GetSystemMetrics(SM_CYDOUBLECLK);
+
+            bool sameButton = button == lastClickButton;
+
+            bool closeEnough =
+                Math.Abs(x - lastClickMouseX) <= doubleClickWidth / 2 &&
+                Math.Abs(y - lastClickMouseY) <= doubleClickHeight / 2;
+
+            bool soonEnough =
+                unchecked(nowMs - lastClickTimeMs) <= doubleClickTimeMs;
+
+            if (sameButton && closeEnough && soonEnough) {
+                lastClickCount++;
+            } else {
+                lastClickCount = 1;
+            }
+
+            lastClickButton = button;
+            lastClickMouseX = x;
+            lastClickMouseY = y;
+            lastClickTimeMs = nowMs;
+
+            return lastClickCount;
         }
 
         private void HandleKeyEvent(byte[] buffer) {
             int unityKeyCodeInt = ConvertInt(buffer, 1);
             KeypressEventType eventType = (KeypressEventType) buffer[5];
 
-            UnityKeyCode unityKeyCode = (UnityKeyCode)unityKeyCodeInt;
+            UnityKeyCode unityKeyCode = (UnityKeyCode) unityKeyCodeInt;
 
             int cefKeyCode = unityKeyCodeInt;
 
@@ -133,7 +190,7 @@ namespace Alacrity {
             cefClient.GetHost().SendKeyEvent(new CefKeyEvent {
                 WindowsKeyCode = cefKeyCode,
                 EventType = GetCefKeyEventType(eventType),
-                Modifiers = modifiers,
+                Modifiers = eventType == KeypressEventType.Char ? 0 : modifiers,
             });
         }
 
